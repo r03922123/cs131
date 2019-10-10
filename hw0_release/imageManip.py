@@ -20,7 +20,7 @@ def load(image_path):
 
     ### YOUR CODE HERE
     # Use skimage io.imread
-    pass
+    out = io.imread(image_path)
     ### END YOUR CODE
 
     # Let's convert the image to be between the correct range.
@@ -45,7 +45,7 @@ def dim_image(image):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = 0.5 * (image ** 2)
     ### END YOUR CODE
 
     return out
@@ -66,7 +66,7 @@ def convert_to_grey_scale(image):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = color.rgb2gray(image)
     ### END YOUR CODE
 
     return out
@@ -86,7 +86,9 @@ def rgb_exclusion(image, channel):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    channel_dict = {'R':0, 'G':1, 'B':2}
+    out = image.copy()
+    out[:, :, channel_dict[channel]] = 0
     ### END YOUR CODE
 
     return out
@@ -107,7 +109,8 @@ def lab_decomposition(image, channel):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    channel_dict = {'L':0, 'A':1, 'B':2}
+    out = lab[:, :, channel_dict[channel]]
     ### END YOUR CODE
 
     return out
@@ -128,7 +131,8 @@ def hsv_decomposition(image, channel='H'):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    channel_dict = {'H':0, 'S':1, 'V':2}
+    out = hsv[:, :, channel_dict[channel]]
     ### END YOUR CODE
 
     return out
@@ -154,7 +158,10 @@ def mix_images(image1, image2, channel1, channel2):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    out1 = rgb_exclusion(image1, channel1)[:, :len(image1)//2, :]
+    out2 = rgb_exclusion(image2, channel2)[:, len(image2)//2:, :]
+    out = np.concatenate((out1, out2), axis=1)
+    print(out.shape)
     ### END YOUR CODE
 
     return out

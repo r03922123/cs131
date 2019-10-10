@@ -29,7 +29,21 @@ def conv_nested(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.flipud(np.fliplr(kernel))
+    for m in range(Hi):
+        for n in range(Wi):
+            s = 0
+            for i in range(Hk):
+                for j in range(Wk):
+                    l = m + i - Hk//2
+                    k = n + j - Wk//2
+                    # Boundary condition
+                    if l < 0 or k < 0 or l > (Hi-1) or k > (Wi-1):
+                        p = 0
+                    else:
+                        p = image[l, k]
+                    s += p * kernel[i, j] 
+            out[m, n] = s
     ### END YOUR CODE
 
     return out
@@ -56,7 +70,8 @@ def zero_pad(image, pad_height, pad_width):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = np.zeros((H + pad_height * 2, W + pad_width * 2))
+    out[pad_height:-pad_height, pad_width:-pad_width] = image
     ### END YOUR CODE
     return out
 
@@ -85,9 +100,15 @@ def conv_fast(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    kernel = np.flipud(np.fliplr(kernel))
+    pad_h, pad_w = Hk//2, Wk//2
+    img_pad = image.copy()
+    img_pad = zero_pad(img_pad, pad_h, pad_w)
 
+    for i in range(Hi):
+        for j in range(Wi):
+            out[i, j] = (img_pad[i: i+Hk, j:j+Wk] * kernel).sum()
+    ### END YOUR CODE
     return out
 
 def conv_faster(image, kernel):
@@ -104,7 +125,21 @@ def conv_faster(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.flipud(np.fliplr(kernel))
+    pad_h, pad_w = Hk//2, Wk//2
+    img_pad = image.copy()
+    img_pad = zero_pad(img_pad, pad_h, pad_w)
+
+    for i in range(Hi):
+        for j in range(Wi):
+            if j == 0:
+                m = img_pad[i: i+Hk, j:j+Wk] * kernel
+                out[i, j] = m.sum()
+                neg = m[:, 0].sum()
+            else:
+                m = kernel[:, 2] * img_pad[i: i+Hk, j+Wk-1]
+                out[i, j] = out[i, j-1] - neg + m.sum()
+                neg = (kernel[:, 0] * img_pad[i: i+Hk, j]).sum()
     ### END YOUR CODE
 
     return out
@@ -124,7 +159,21 @@ def cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    
+    Hk, Wk = g.shape
+    Hi, Wi = f.shape
+    out = np.zeros((Hi, Wi))
+
+    
+    pad_h, pad_w = Hk//2, Wk//2
+    img_pad = f.copy()
+    img_pad = zero_pad(img_pad, pad_h, pad_w)
+
+    for i in range(Hi):
+        for j in range(Wi):
+            out[i, j] = (img_pad[i: i+Hk, j:j+Wk] * g).sum()
+    ### END YOUR CODE
+    return out
     ### END YOUR CODE
 
     return out
@@ -146,7 +195,8 @@ def zero_mean_cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    g = g-g.mean()
+    out = cross_correlation(f, g)
     ### END YOUR CODE
 
     return out
@@ -170,7 +220,22 @@ def normalized_cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    g = (g - g.mean()) / g.std()
+    Hk, Wk = g.shape
+    Hi, Wi = f.shape
+    out = np.zeros((Hi, Wi))
+
+    
+    pad_h, pad_w = Hk//2, Wk//2
+    img_pad = f.copy()
+    img_pad = zero_pad(img_pad, pad_h, pad_w)
+
+    for i in range(Hi):
+        for j in range(Wi):
+            m = img_pad[i: i+Hk, j:j+Wk]
+            m = (m - m.mean()) / m.std()
+            
+            out[i, j] = (m * g).sum()
     ### END YOUR CODE
 
     return out
