@@ -36,7 +36,13 @@ def conv(image, kernel):
     padded = np.pad(image, pad_width, mode='edge')
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.flipud(np.fliplr(kernel))
+    img = np.zeros((Hi * Wi, Hk * Wk))
+    for i in range(Hi * Wi):
+        r, c = i//Wi, i%Wi
+        img[i] = padded[r: r+Hk, c: c+Wk].flatten()
+    
+    out = img.dot(kernel.flatten()).reshape((Hi, Wi))
     ### END YOUR CODE
 
     return out
@@ -61,7 +67,10 @@ def gaussian_kernel(size, sigma):
     kernel = np.zeros((size, size))
 
     ### YOUR CODE HERE
-    pass
+    k = (size - 1)//2
+    for i in range(size):
+        for j in range(size):
+            kernel[i, j] = 1/(2 * np.pi * sigma**2) * np.exp(-((i-k)**2 + (j-k)**2)/(2*sigma**2))
     ### END YOUR CODE
 
     return kernel
@@ -81,7 +90,8 @@ def partial_x(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.array([1/2, 0, -1/2]).reshape(1, 3)
+    out = conv(img, kernel)
     ### END YOUR CODE
 
     return out
@@ -101,7 +111,8 @@ def partial_y(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.array([1/2, 0, -1/2]).reshape(3, 1)
+    out = conv(img, kernel)
     ### END YOUR CODE
 
     return out
@@ -125,7 +136,14 @@ def gradient(img):
     theta = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    g_x = partial_x(img)
+    g_y = partial_y(img)
+    G = np.sqrt(g_x**2 + g_y**2)
+    
+    # theta = (np.rad2deg(np.arctan2(g_y, g_x)) + 180) % 360
+    
+    theta = np.arctan2(g_y, g_x) * 180 / np.pi
+    theta = (theta + 360) % 360
     ### END YOUR CODE
 
     return G, theta
@@ -149,9 +167,42 @@ def non_maximum_suppression(G, theta):
 
     # Round the gradient direction to the nearest 45 degrees
     theta = np.floor((theta + 22.5) / 45) * 45
-
+    
     ### BEGIN YOUR CODE
-    pass
+#     for i in range(1, H-1):
+#         for j in range(1, W-1):
+#             alpha = np.deg2rad(theta[i, j])
+#             # note here the angle is measured clockwisely
+#             # i.e. if theta=90 degree the direction is south.
+#             p1 = G[i-int(np.round(np.sin(alpha))), j-int(np.round(np.cos(alpha)))]
+#             p2 = G[i+int(np.round(np.sin(alpha))), j+int(np.round(np.cos(alpha)))]
+#             if not (G[i, j] >= p1 and G[i, j] >= p2):
+#                 out[i, j] = 0
+#             else:
+#                 out[i, j] = G[i, j]
+    
+    theta[theta==360] = 0
+    theta2nb = dict()
+    for i in range(0, 360, 45):
+        if i in [45, 225]:
+            nb = [[-1, -1], [1, 1]]
+        elif i in [0, 180]:
+            nb = [[0, 1], [0, -1]]
+        elif i in [90, 270]:
+            nb = [[1, 0], [-1, 0]]
+        elif i in [135, 315]:
+            nb = [[-1, 1], [1, -1]]
+        theta2nb[i] = nb
+    for i in range(1, H-1):
+        for j in range(1, W-1):
+            pos, neg = theta2nb[theta[i, j]]
+            i_p, j_p = i + pos[0], j + pos[1]
+            i_pp, j_pp = i + neg[0], j + neg[1]
+            
+            if G[i, j] >= G[i_p, j_p] and G[i, j] >= G[i_pp, j_pp]:
+                out[i, j] = G[i, j]
+            
+
     ### END YOUR CODE
 
     return out
@@ -235,7 +286,7 @@ def link_edges(strong_edges, weak_edges):
     edges = np.copy(strong_edges)
 
     ### YOUR CODE HERE
-    pass
+    
     ### END YOUR CODE
 
     return edges

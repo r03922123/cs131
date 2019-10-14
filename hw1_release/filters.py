@@ -130,16 +130,13 @@ def conv_faster(image, kernel):
     img_pad = image.copy()
     img_pad = zero_pad(img_pad, pad_h, pad_w)
 
-    for i in range(Hi):
-        for j in range(Wi):
-            if j == 0:
-                m = img_pad[i: i+Hk, j:j+Wk] * kernel
-                out[i, j] = m.sum()
-                neg = m[:, 0].sum()
-            else:
-                m = kernel[:, 2] * img_pad[i: i+Hk, j+Wk-1]
-                out[i, j] = out[i, j-1] - neg + m.sum()
-                neg = (kernel[:, 0] * img_pad[i: i+Hk, j]).sum()
+    img = np.zeros((Hi * Wi, Hk * Wk))
+    for i in range(Hi * Wi):
+        r, c = i//Wi, i%Wi
+        img[i] = img_pad[r: r+Hk, c: c+Wk].flatten()
+    
+    out = img.dot(kernel.flatten()).reshape((Hi, Wi))
+    
     ### END YOUR CODE
 
     return out
@@ -159,21 +156,8 @@ def cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    
-    Hk, Wk = g.shape
-    Hi, Wi = f.shape
-    out = np.zeros((Hi, Wi))
-
-    
-    pad_h, pad_w = Hk//2, Wk//2
-    img_pad = f.copy()
-    img_pad = zero_pad(img_pad, pad_h, pad_w)
-
-    for i in range(Hi):
-        for j in range(Wi):
-            out[i, j] = (img_pad[i: i+Hk, j:j+Wk] * g).sum()
-    ### END YOUR CODE
-    return out
+    g = np.flipud(np.fliplr(g))
+    out = conv_faster(f,g)
     ### END YOUR CODE
 
     return out
@@ -230,12 +214,14 @@ def normalized_cross_correlation(f, g):
     img_pad = f.copy()
     img_pad = zero_pad(img_pad, pad_h, pad_w)
 
-    for i in range(Hi):
-        for j in range(Wi):
-            m = img_pad[i: i+Hk, j:j+Wk]
-            m = (m - m.mean()) / m.std()
-            
-            out[i, j] = (m * g).sum()
+    img = np.zeros((Hi * Wi, Hk * Wk))
+    for i in range(Hi * Wi):
+        r, c = i//Wi, i%Wi
+        f = img_pad[r: r+Hk, c: c+Wk].flatten()
+        f = (f - f.mean()) / f.std()
+        img[i] = f
+    
+    out = img.dot(g.flatten()).reshape((Hi, Wi))
     ### END YOUR CODE
 
     return out
