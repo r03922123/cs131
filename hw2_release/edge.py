@@ -169,20 +169,9 @@ def non_maximum_suppression(G, theta):
     theta = np.floor((theta + 22.5) / 45) * 45
     
     ### BEGIN YOUR CODE
-#     for i in range(1, H-1):
-#         for j in range(1, W-1):
-#             alpha = np.deg2rad(theta[i, j])
-#             # note here the angle is measured clockwisely
-#             # i.e. if theta=90 degree the direction is south.
-#             p1 = G[i-int(np.round(np.sin(alpha))), j-int(np.round(np.cos(alpha)))]
-#             p2 = G[i+int(np.round(np.sin(alpha))), j+int(np.round(np.cos(alpha)))]
-#             if not (G[i, j] >= p1 and G[i, j] >= p2):
-#                 out[i, j] = 0
-#             else:
-#                 out[i, j] = G[i, j]
-    
     theta[theta==360] = 0
     theta2nb = dict()
+    # note here the angle is measured clockwisely
     for i in range(0, 360, 45):
         if i in [45, 225]:
             nb = [[-1, -1], [1, 1]]
@@ -201,8 +190,6 @@ def non_maximum_suppression(G, theta):
             
             if G[i, j] >= G[i_p, j_p] and G[i, j] >= G[i_pp, j_pp]:
                 out[i, j] = G[i, j]
-            
-
     ### END YOUR CODE
 
     return out
@@ -227,7 +214,8 @@ def double_thresholding(img, high, low):
     weak_edges = np.zeros(img.shape, dtype=np.bool)
 
     ### YOUR CODE HERE
-    pass
+    strong_edges = img > high
+    weak_edges = np.logical_and(img <= high, img >= low)
     ### END YOUR CODE
 
     return strong_edges, weak_edges
@@ -286,7 +274,22 @@ def link_edges(strong_edges, weak_edges):
     edges = np.copy(strong_edges)
 
     ### YOUR CODE HERE
+    visited = edges.copy()
+    queue = []
     
+    for idx in range(len(indices)):
+        i, j = indices[idx][0], indices[idx][1]
+        visited[i, j] = True
+        edges[i, j] = True
+        for nb in get_neighbors(i, j, H, W):
+            queue.append(nb)
+        while queue:
+            m, n = queue.pop(0)
+            if not visited[m, n] and weak_edges[m, n]:
+                visited[m, n] = True
+                edges[m, n] = True
+                for nb in get_neighbors(m, n, H, W):
+                    queue.append(nb)
     ### END YOUR CODE
 
     return edges
@@ -304,7 +307,21 @@ def canny(img, kernel_size=5, sigma=1.4, high=20, low=15):
         edge: numpy array of shape(H, W).
     """
     ### YOUR CODE HERE
-    pass
+    # Smoothing by gauddion kernel
+    kernel = gaussian_kernel(5, sigma)
+    img = conv(img, kernel)
+    
+    # Get Gradient and direction of img
+    G, theta = gradient(img)
+    
+    # Non maximum suppression
+    img = non_maximum_suppression(G, theta)
+    
+    # Double thresholding
+    strong_edge, weak_edge = double_thresholding(img, high, low)
+    
+    # Edge tracking
+    edge = link_edges(strong_edge, weak_edge)
     ### END YOUR CODE
 
     return edge
@@ -344,7 +361,13 @@ def hough_transform(img):
     # Find rho corresponding to values in thetas
     # and increment the accumulator in the corresponding coordiate.
     ### YOUR CODE HERE
-    pass
+    """
+    reference to https://github.com/mikucy/CS131/blob/master/hw2_release/edge.py
+    """
+    for i, j in zip(ys, xs):
+        for idx in range(thetas.shape[0]):
+            r = j * cos_t[idx] + i * sin_t[idx]
+            accumulator[int(r + diag_len), idx] += 1
     ### END YOUR CODE
 
     return accumulator, rhos, thetas
