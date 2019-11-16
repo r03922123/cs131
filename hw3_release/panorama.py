@@ -17,10 +17,14 @@ from scipy.ndimage.filters import convolve
 from utils import pad, unpad, get_output_space, warp_image
 
 
+def conv2d(img, k):
+    return convolve(img, k)
+
 def harris_corners(img, window_size=3, k=0.04):
     """
     Compute Harris corner response map. Follow the math equation
     R=Det(M)-k(Trace(M)^2).
+    Reference: http://vision.stanford.edu/teaching/cs131_fall1920/slides/05_ransac.pdf, page 54
 
     Hint:
         You may use the function scipy.ndimage.filters.convolve,
@@ -44,7 +48,17 @@ def harris_corners(img, window_size=3, k=0.04):
     dy = filters.sobel_h(img)
 
     ### YOUR CODE HERE
-    pass
+    dxdy = dx * dy
+    dxdx, dydy = dx ** 2, dy ** 2
+    
+    g_dxdx = conv2d(dxdx, window)
+    g_dydy = conv2d(dydy, window)
+    g_dxdy = conv2d(dxdy, window) 
+    response = g_dxdx * g_dydy - g_dxdy ** 2 - k * (g_dxdx + g_dydy) ** 2
+    # for i in range(H):
+    #     for j in range(W):
+    #         M = np.array([[g_dxdx[i, j], g_dxdy[i, j]], [g_dxdy[i, j], g_dydy[i, j]]])
+    #         response[i, j] = np.linalg.det(M) - k * np.trace(M) ** 2
     ### END YOUR CODE
 
     return response
@@ -70,7 +84,9 @@ def simple_descriptor(patch):
     """
     feature = []
     ### YOUR CODE HERE
-    pass
+    patch = patch.flatten()
+    std = patch.std() if patch.std() > 0 else 1
+    feature = (patch - patch.mean()) / std
     ### END YOUR CODE
     return feature
 
@@ -123,7 +139,11 @@ def match_descriptors(desc1, desc2, threshold=0.5):
     dists = cdist(desc1, desc2)
 
     ### YOUR CODE HERE
-    pass
+    dist_min_val = np.sort(dists, axis=1)
+    ratio = dist_min_val[:, 0] / dist_min_val[:, 1]
+    m1 = np.arange(N).reshape(N, 1)[ratio <= threshold]
+    m2 = np.argmin(dists[ratio <= threshold], axis=1)
+    matches = np.concatenate((m1, m2[:, None]), axis=1)
     ### END YOUR CODE
 
     return matches
