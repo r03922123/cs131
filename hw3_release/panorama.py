@@ -169,7 +169,7 @@ def fit_affine_matrix(p1, p2):
     p2 = pad(p2)
 
     ### YOUR CODE HERE
-    pass
+    H = np.linalg.lstsq(p2, p1, rcond=None)[0]
     ### END YOUR CODE
 
     # Sometimes numerical issues cause least-squares to produce the last
@@ -205,18 +205,30 @@ def ransac(keypoints1, keypoints2, matches, n_iters=200, threshold=20):
     matches = matches.copy()
 
     N = matches.shape[0]
-    print(N)
     n_samples = int(N * 0.2)
 
     matched1 = pad(keypoints1[matches[:,0]])
     matched2 = pad(keypoints2[matches[:,1]])
 
-    max_inliers = np.zeros(N)
+    max_inliers = np.zeros(N, dtype=int)
     n_inliers = 0
 
     # RANSAC iteration start
     ### YOUR CODE HERE
-    pass
+    def get_H(n_indices, m1, m2):
+        sample1, sample2 = matched1[n_indices], matched2[n_indices]
+        H = fit_affine_matrix(sample1[:, :2], sample2[:, :2])
+        return H, sample1, sample2
+        
+    keep = []
+    for n_iter in range(n_iters):
+        # select randon match indices and obtain those matches
+        n_indices = np.random.choice(N, n_samples, replace=False)
+        H_tmp, sample1, sample2 = get_H(n_indices, matched1, matched2)
+        err = np.linalg.norm(np.dot(sample2, H_tmp)[:, :2] - sample1[:, :2], 2, axis=1)
+        keep.append(n_indices[err < threshold].tolist())
+    max_inliers = list(set(sum(keep, [])))
+    H, _, _ = get_H(max_inliers, matched1, matched2)
     ### END YOUR CODE
     print(H)
     return H, orig_matches[max_inliers]

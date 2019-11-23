@@ -38,6 +38,7 @@ def plot_matches(ax, image1, image2, keypoints1, keypoints2, matches,
 
     new_shape1 = list(image1.shape)
     new_shape2 = list(image2.shape)
+    print(new_shape1, new_shape2)
 
     if image1.shape[0] < image2.shape[0]:
         new_shape1[0] = image2.shape[0]
