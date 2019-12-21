@@ -50,10 +50,10 @@ def harris_corners(img, window_size=3, k=0.04):
     ### YOUR CODE HERE
     dxdy = dx * dy
     dxdx, dydy = dx ** 2, dy ** 2
-    
+
     g_dxdx = conv2d(dxdx, window)
     g_dydy = conv2d(dydy, window)
-    g_dxdy = conv2d(dxdy, window) 
+    g_dxdy = conv2d(dxdy, window)
     response = g_dxdx * g_dydy - g_dxdy ** 2 - k * (g_dxdx + g_dydy) ** 2
     # for i in range(H):
     #     for j in range(W):
@@ -145,7 +145,6 @@ def match_descriptors(desc1, desc2, threshold=0.5):
     m2 = np.argmin(dists[ratio <= threshold], axis=1)
     matches = np.concatenate((m1, m2[:, None]), axis=1)
     ### END YOUR CODE
-
     return matches
 
 
@@ -219,7 +218,7 @@ def ransac(keypoints1, keypoints2, matches, n_iters=200, threshold=20):
         sample1, sample2 = matched1[n_indices], matched2[n_indices]
         H = fit_affine_matrix(sample1[:, :2], sample2[:, :2])
         return H, sample1, sample2
-        
+
     keep = []
     for n_iter in range(n_iters):
         # select randon match indices and obtain those matches
@@ -230,7 +229,6 @@ def ransac(keypoints1, keypoints2, matches, n_iters=200, threshold=20):
     max_inliers = list(set(sum(keep, [])))
     H, _, _ = get_H(max_inliers, matched1, matched2)
     ### END YOUR CODE
-    print(H)
     return H, orig_matches[max_inliers]
 
 
@@ -242,7 +240,7 @@ def hog_descriptor(patch, pixels_per_cell=(8,8)):
     2. Compute gradient histograms for each cell
     3. Flatten block of histograms into a 1D feature vector
         Here, we treat the entire patch of histograms as our block
-    4. Normalize flattened block
+    4. Normalize flattened block (L2 Norm)
         Normalization makes the descriptor more robust to lighting variations
 
     Args:
@@ -280,7 +278,14 @@ def hog_descriptor(patch, pixels_per_cell=(8,8)):
 
     # Compute histogram per cell
     ### YOUR CODE HERE
-    pass
+    hist_bins = list(range(0, 181, degrees_per_bin))
+    for i in range(rows):
+        for j in range(cols):
+            a = theta_cells[i, j].flatten()
+            weight = G_cells[i, j].flatten()
+            cells[i, j] = np.histogram(a, bins=hist_bins, weights=weight)[0]
+    block = cells.flatten()
+    block = block / np.linalg.norm(block, ord=2)
     ### YOUR CODE HERE
 
     return block
@@ -303,20 +308,32 @@ def linear_blend(img1_warped, img2_warped):
     Returns:
         merged: Merged image in output space
     """
-    out_H, out_W = img1_warped.shape # Height and width of output space
-    img1_mask = (img1_warped != 0)  # Mask == 1 inside the image
-    img2_mask = (img2_warped != 0)  # Mask == 1 inside the image
+    out_H, out_W = img1_warped.shape  # Height and width of output space
+    img1_mask = (img1_warped > 0)  # Mask == 1 inside the image
+    img2_mask = (img2_warped > 0)  # Mask == 1 inside the image
 
-    # Find column of middle row where warped image 1 ends
+    # # Find column of middle row where warped image 1 ends
+    # # This is where to end weight mask for warped image 1
+    # # right_margin = out_W - np.argmax(np.fliplr(img1_mask)[out_H//2, :].reshape(1, out_W), 1)[0]
+
+    # Find the column where img1_warped ended with pixel exist
     # This is where to end weight mask for warped image 1
-    right_margin = out_W - np.argmax(np.fliplr(img1_mask)[out_H//2, :].reshape(1, out_W), 1)[0]
+    right_margin = out_W - next((i for i, x in enumerate(np.any(np.fliplr(img1_mask), axis=0)) if x), None)
 
-    # Find column of middle row where warped image 2 starts
+    # # Find column of middle row where warped image 2 starts
+    # # This is where to start weight mask for warped image 2
+    # # left_margin = np.argmax(img2_mask[out_H//2, :].reshape(1, out_W), 1)[0]
+
+    # Find the column where img1_warped start with pixel exist
     # This is where to start weight mask for warped image 2
-    left_margin = np.argmax(img2_mask[out_H//2, :].reshape(1, out_W), 1)[0]
-
+    left_margin = next((i for i, x in enumerate(np.any(img2_mask, axis=0)) if x), None)
     ### YOUR CODE HERE
-    pass
+    margin_w = right_margin - left_margin + 1
+    left_mask = np.ones(img1_mask.shape)
+    right_mask = np.ones(img2_mask.shape)
+    left_mask[:, left_margin:right_margin + 1] = np.linspace(1, 0, num=margin_w)
+    right_mask[:, left_margin: right_margin + 1] = np.linspace(0, 1, num=margin_w)
+    merged = img1_warped * left_mask + img2_warped * right_mask
     ### END YOUR CODE
 
     return merged
@@ -342,22 +359,48 @@ def stitch_multiple_images(imgs, desc_func=simple_descriptor, patch_size=5):
                               threshold_rel=0.05,
                               exclude_border=8)
         keypoints.append(kypnts)
-    # Describe keypoints
-    descriptors = []  # descriptors[i] corresponds to keypoints[i]
-    for i, kypnts in enumerate(keypoints):
-        desc = describe_keypoints(imgs[i], kypnts,
-                                  desc_func=desc_func,
-                                  patch_size=patch_size)
-        descriptors.append(desc)
-    # Match keypoints in neighboring images
-    matches = []  # matches[i] corresponds to matches between
-                  # descriptors[i] and descriptors[i+1]
-    for i in range(len(imgs)-1):
-        mtchs = match_descriptors(descriptors[i], descriptors[i+1], 0.7)
-        matches.append(mtchs)
+    # # Describe keypoints
+    # descriptors = []  # descriptors[i] corresponds to keypoints[i]
+    # for i, kypnts in enumerate(keypoints):
+    #     desc = describe_keypoints(imgs[i], kypnts,
+    #                               desc_func=desc_func,
+    #                               patch_size=patch_size)
+    #     descriptors.append(desc)
+    # # Match keypoints in neighboring images
+    # matches = []  # matches[i] corresponds to matches between
+    #               # descriptors[i] and descriptors[i+1]
+    # for i in range(len(imgs)-1):
+    #     mtchs = match_descriptors(descriptors[i], descriptors[i+1], 0.7)
+    #     matches.append(mtchs)
 
     ### YOUR CODE HERE
-    pass
+    for i in range(len(imgs)-1):
+        keypoints = []  # keypoints[i] corresponds to imgs[i]
+        descriptors = []  # descriptors[i] corresponds to keypoints[i]
+        for j in range(2):
+            kypnts = corner_peaks(harris_corners(imgs[i+j], window_size=3),
+                                threshold_rel=0.05,
+                                exclude_border=8)
+            keypoints.append(kypnts)
+            desc = describe_keypoints(imgs[i+j], kypnts,
+                                    desc_func=desc_func,
+                                    patch_size=patch_size)
+            descriptors.append(desc)
+        mtchs = match_descriptors(descriptors[0], descriptors[1], 0.7)
+
+        H, robust_matches = ransac(keypoints[0], keypoints[1], mtchs, threshold=1)
+        output_shape, offset = get_output_space(imgs[i], [imgs[i+1]], [H])
+        img1_warped = warp_image(imgs[i], np.eye(3), output_shape, offset)
+        img1_mask = (img1_warped != -1)  # Mask == 1 inside the image
+        img1_warped[~img1_mask] = 0      # Return background values to 0
+
+        img2_warped = warp_image(imgs[i+1], H, output_shape, offset)
+        img2_mask = (img2_warped != -1)  # Mask == 1 inside the image
+        img2_warped[~img2_mask] = 0      # Return background values to 0
+
+        # Merge the warped images using linear blending scheme
+        imgs[i+1] = linear_blend(img1_warped, img2_warped)
+    panorama = imgs[-1]
     ### END YOUR CODE
 
     return panorama
