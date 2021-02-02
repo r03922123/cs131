@@ -5,7 +5,7 @@ PyWavelets==0.5.2
 Pygments==2.2.0
 appnope==0.1.0
 astroid==1.5.3
-bleach==2.0.0
+bleach==3.3.0
 cycler==0.10.0
 decorator==4.3.0
 entrypoints==0.2.3
